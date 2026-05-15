@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NPC対戦シミュレーター</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #1e1e2e;
+    --surface: #2a2a3e;
+    --surface2: #32324a;
+    --border: #44445a;
+    --fg: #e0e0f0;
+    --fg-dim: #8888aa;
+    --accent: #7c6fef;
+    --accent2: #4caf7d;
+    --danger: #ef5350;
+    --draw: #888;
+    --win-color: #4caf7d;
+    --loss-color: #ef5350;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Zen Kaku Gothic New', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: linear-gradient(135deg, #2d2d5e 0%, #1e1e2e 60%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header h1 .icon { font-size: 20px; }
+  header p { font-size: 11px; color: var(--fg-dim); margin-top: 2px; }
+
+  /* ===== TABS ===== */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex-shrink: 0;
+    padding: 10px 18px;
+    background: none;
+    border: none;
+    color: var(--fg-dim);
+    font: 13px var(--sans);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .2s, border-color .2s;
+    white-space: nowrap;
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ===== PANELS ===== */
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+
+  /* ===== SETUP PANEL ===== */
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    font: 12px var(--mono);
+    padding: 10px;
+    resize: vertical;
+    min-height: 100px;
+    outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--fg-dim); }
+
+  .hint {
+    font-size: 11px;
+    color: var(--fg-dim);
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    font: 700 13px var(--sans);
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: scale(.97); opacity: .85; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface2); color: var(--fg); border: 1px solid var(--border); }
+  .btn-success { background: var(--accent2); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ===== STATUS BADGE ===== */
+  .status-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--fg-dim);
+  }
+  .badge.ok { border-color: var(--accent2); color: var(--accent2); }
+  .badge.err { border-color: var(--danger); color: var(--danger); }
+
+  /* ===== SIM PANEL ===== */
+  .npc-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 14px;
+  }
+  .vs-label {
+    font: 900 16px var(--sans);
+    color: var(--accent);
+    text-align: center;
+    padding-top: 28px;
+  }
+
+  .npc-col label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--fg-dim);
+    margin-bottom: 5px;
+    letter-spacing: .04em;
+  }
+
+  .select-wrapper {
+    position: relative;
+  }
+  select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    font: 13px var(--sans);
+    padding: 10px 32px 10px 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: border-color .2s;
+    cursor: pointer;
+  }
+  select:focus { border-color: var(--accent); }
+  .select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--fg-dim);
+    font-size: 12px;
+  }
+
+  .npc-meta {
+    font-size: 11px;
+    color: var(--fg-dim);
+    margin-top: 4px;
+    min-height: 16px;
+  }
+
+  /* search box */
+  .search-box {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    font: 13px var(--sans);
+    padding: 8px 12px;
+    outline: none;
+    margin-bottom: 4px;
+    -webkit-appearance: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+
+  /* ===== RUN BUTTON ROW ===== */
+  .run-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .run-status {
+    font-size: 12px;
+    color: var(--fg-dim);
+    flex: 1;
+  }
+
+  /* ===== WIN RATE BAR ===== */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .result-card.visible { display: block; }
+
+  .win-bar-wrap {
+    border-radius: 6px;
+    overflow: hidden;
+    height: 32px;
+    display: flex;
+    margin-bottom: 10px;
+    background: var(--surface2);
+  }
+  .win-seg {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 11px var(--mono);
+    color: #fff;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .win-seg.p1 { background: var(--win-color); }
+  .win-seg.draw { background: var(--draw); }
+  .win-seg.p2 { background: var(--loss-color); }
+
+  .bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .bar-labels .lbl-p1 { color: var(--win-color); font-weight: 700; }
+  .bar-labels .lbl-p2 { color: var(--loss-color); font-weight: 700; }
+
+  .stats-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .stat-chip {
+    flex: 1;
+    min-width: 80px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .stat-chip .num {
+    font: 700 18px var(--mono);
+    display: block;
+  }
+  .stat-chip .lbl { font-size: 10px; color: var(--fg-dim); margin-top: 2px; }
+  .stat-chip.p1 .num { color: var(--win-color); }
+  .stat-chip.draw-c .num { color: var(--draw); }
+  .stat-chip.p2 .num { color: var(--loss-color); }
+
+  .verdict {
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font: 700 13px var(--sans);
+    letter-spacing: .03em;
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    color: var(--fg);
+  }
+
+  /* ===== LOG ===== */
+  .log-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font: 12px var(--mono);
+    color: var(--fg-dim);
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    -webkit-overflow-scrolling: touch;
+    line-height: 1.6;
+  }
+  .log-box .log-err { color: var(--danger); }
+  .log-box .log-ok { color: var(--accent2); }
+  .log-box .log-sep { color: var(--accent); }
+
+  /* ===== SPINNER ===== */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ===== PROGRESS BAR ===== */
+  .prog-bar-wrap {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .prog-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    border-radius: 2px;
+    transition: width .2s;
+  }
+  @keyframes indeterminate {
+    0% { left: -40%; width: 40%; }
+    100% { left: 100%; width: 40%; }
+  }
+  .prog-bar-fill.indeterminate {
+    position: relative;
+    animation: indeterminate 1s ease infinite;
+    width: 40% !important;
+  }
+
+  /* mobile bottom safe area */
+  .safe-bottom { height: env(safe-area-inset-bottom, 16px); }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    font: 13px var(--sans);
+    padding: 10px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
+    max-width: 90vw;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== ABOUT / HELP ===== */
+  .help-item { margin-bottom: 14px; }
+  .help-item strong { color: var(--fg); display: block; margin-bottom: 3px; font-size: 13px; }
+  .help-item p { color: var(--fg-dim); font-size: 12px; line-height: 1.6; }
+  code {
+    background: var(--surface2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #c9c9f0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="icon">⚔️</span> NPC対戦シミュレーター</h1>
+  <p>NPCパターン総当り勝率計算ツール</p>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('tab-setup')">📂 データ読込</button>
+  <button class="tab-btn" onclick="showTab('tab-sim')">🎮 シミュレーション</button>
+  <button class="tab-btn" onclick="showTab('tab-help')">❓ 使い方</button>
+</div>
+
+<!-- ========== TAB: SETUP ========== -->
+<div id="tab-setup" class="panel active">
+
+  <p class="hint" style="margin-bottom:14px;font-size:12px;line-height:1.6">
+    CSVの内容をそのまま下のテキストエリアに貼り付けてください。<br>
+    ヘッダー行も含めてコピー＆ペーストでOKです。
+  </p>
+
+  <!-- 技マスタ -->
+  <div class="section-title">技マスタ (技マスタ.csv)</div>
+  <div class="card">
+    <textarea id="csv-skills" placeholder="id,skill_name,skill_description,category,atk,def,times,weapon_id&#10;説明行...&#10;1,技A,説明,1,100,80,2,sword&#10;..."></textarea>
+    <p class="hint">列: id, skill_name, skill_description, category, atk, def, times, weapon_id<br>※1行目はヘッダー、2行目は説明行（スキップ）</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="loadSkills()">読み込む</button>
+      <span id="status-skills" class="badge">未読込</span>
+    </div>
+  </div>
+
+  <!-- NPCマスタ -->
+  <div class="section-title">NPCマスタ (NPCマスタ.csv)</div>
+  <div class="card">
+    <textarea id="csv-npcs" placeholder="pattern_id,pattern_name,weapon_name,r1,r2,r3,r4,r5[,npc_id][,arcade]&#10;1,パターンA,剣士,技A,技B,技C,技D,技E,npc01,TRUE&#10;..."></textarea>
+    <p class="hint">列: pattern_id, pattern_name, weapon_name, r1〜r5<br>任意: npc_id（重複識別用）, arcade（TRUE/FALSE）</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="loadNPCs()">読み込む</button>
+      <span id="status-npcs" class="badge">未読込</span>
+    </div>
+  </div>
+
+  <div class="section-title">読込状態</div>
+  <div class="card">
+    <div class="status-row">
+      <span id="stat-skills-count" class="badge">技: -</span>
+      <span id="stat-npcs-count" class="badge">NPC: -</span>
+      <span id="stat-npcs-arcade" class="badge">arcade対象: -</span>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-secondary" onclick="clearAll()">🗑 全クリア</button>
+      <button class="btn btn-success" onclick="goToSim()">▶ シミュレーションへ</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== TAB: SIM ========== -->
+<div id="tab-sim" class="panel">
+
+  <div class="section-title">NPC選択</div>
+
+  <!-- NPC1 search + select -->
+  <div class="npc-grid">
+    <div class="npc-col">
+      <label>NPC 1（先攻）</label>
+      <input type="search" class="search-box" id="search-npc1" placeholder="🔍 絞り込み" oninput="filterNpc(1)">
+      <div class="select-wrapper">
+        <select id="sel-npc1" onchange="updateNpcMeta()" size="1"></select>
+        <span class="select-arrow">▾</span>
+      </div>
+      <div class="npc-meta" id="meta-npc1"></div>
+    </div>
+    <div class="vs-label">VS</div>
+    <div class="npc-col">
+      <label>NPC 2（後攻）</label>
+      <input type="search" class="search-box" id="search-npc2" placeholder="🔍 絞り込み" oninput="filterNpc(2)">
+      <div class="select-wrapper">
+        <select id="sel-npc2" onchange="updateNpcMeta()" size="1"></select>
+        <span class="select-arrow">▾</span>
+      </div>
+      <div class="npc-meta" id="meta-npc2"></div>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <button class="btn btn-success" id="btn-run" onclick="runSim()">▶ 実行</button>
+    <div>
+      <div class="run-status" id="run-status">待機中</div>
+      <div class="prog-bar-wrap"><div class="prog-bar-fill" id="prog-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="result-card">
+    <div class="section-title" style="margin-bottom:10px">シミュレーション結果</div>
+    <div class="win-bar-wrap">
+      <div class="win-seg p1" id="bar-p1" style="width:0%"></div>
+      <div class="win-seg draw" id="bar-draw" style="width:0%"></div>
+      <div class="win-seg p2" id="bar-p2" style="width:0%"></div>
+    </div>
+    <div class="bar-labels">
+      <span class="lbl-p1" id="lbl-p1">◀ NPC1 勝ち</span>
+      <span class="lbl-p2" id="lbl-p2">NPC2 勝ち ▶</span>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip p1">
+        <span class="num" id="stat-win">-</span>
+        <div class="lbl" id="stat-win-lbl">NPC1 勝</div>
+      </div>
+      <div class="stat-chip draw-c">
+        <span class="num" id="stat-draw">-</span>
+        <div class="lbl">引分</div>
+      </div>
+      <div class="stat-chip p2">
+        <span class="num" id="stat-loss">-</span>
+        <div class="lbl" id="stat-loss-lbl">NPC2 勝</div>
+      </div>
+      <div class="stat-chip">
+        <span class="num" id="stat-total">-</span>
+        <div class="lbl">総試合</div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <!-- Log -->
+  <div class="section-title">対戦ログ</div>
+  <div class="log-box" id="sim-log">（ここにログが表示されます）</div>
+
+</div>
+
+<!-- ========== TAB: HELP ========== -->
+<div id="tab-help" class="panel">
+  <div class="section-title">使い方</div>
+  <div class="card">
+    <div class="help-item">
+      <strong>① CSVデータを貼り付ける</strong>
+      <p>「データ読込」タブで、<code>技マスタ.csv</code> と <code>NPCマスタ.csv</code> の内容をそれぞれテキストエリアに貼り付け「読み込む」を押します。</p>
+    </div>
+    <div class="help-item">
+      <strong>② シミュレーションタブへ</strong>
+      <p>「シミュレーションへ」ボタンを押すか、上部タブから「シミュレーション」を選択します。</p>
+    </div>
+    <div class="help-item">
+      <strong>③ NPC を選んで実行</strong>
+      <p>NPC1・NPC2 をそれぞれ選択（テキスト入力で絞り込み可能）し、「▶ 実行」を押します。</p>
+    </div>
+  </div>
+
+  <div class="section-title">計算ロジック</div>
+  <div class="card">
+    <div class="help-item">
+      <strong>有利不利（カテゴリ相性）</strong>
+      <p>カテゴリ 1〜5 の相性テーブルに基づきます。有利なら自分ATKのみ、不利なら相手ATKのみ、同等なら両方ATK×0.5 でポイントを算出します。</p>
+    </div>
+    <div class="help-item">
+      <strong>ボルテージブースト</strong>
+      <p>カテゴリ 4・5 の技は、それまでに使った他カテゴリ数に応じてATKが増幅されます（1種: ×1.1 〜 4種以上: ×2.0）。</p>
+    </div>
+    <div class="help-item">
+      <strong>勝敗判定</strong>
+      <p>5ラウンド分の合計ポイントで大小比較。NPC1・NPC2 の全パターンを総当り（全組み合わせ対戦）して集計します。</p>
+    </div>
+    <div class="help-item">
+      <strong>arcade フィルタ</strong>
+      <p>NPCマスタに <code>arcade</code> 列がある場合、<code>TRUE</code> の行のみ対戦対象になります。列がなければ全行が対象です。</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="safe-bottom"></div>
+
+<script>
+// ========== STATE ==========
+let skills = {};        // id -> {name, category, atk, def, times, weapon_id, description}
+let skillsByName = {};  // name -> skill object
+let npcs = {};          // rowIndex -> {weapon_name, rounds[5], npc_id?, arcade}
+let npcDisplayNames = []; // ordered unique display names
+
+// ========== TAB ==========
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const idx = ['tab-setup','tab-sim','tab-help'].indexOf(id);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (id === 'tab-sim') rebuildSelects();
+}
+
+// ========== CSV PARSER ==========
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return [];
+  const result = [];
+  for (const line of lines) {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur);
+    result.push(cols.map(s => s.trim()));
+  }
+  return result;
+}
+
+// ========== LOAD SKILLS ==========
+function loadSkills() {
+  const raw = document.getElementById('csv-skills').value.trim();
+  if (!raw) { toast('技マスタのテキストが空です'); return; }
+  const rows = parseCSV(raw);
+  if (rows.length < 3) { setBadge('status-skills','err','行数不足'); return; }
+
+  // row0 = header, row1 = description row (skip), row2+ = data
+  const header = rows[0];
+  const idx = h => header.indexOf(h);
+  const iId = idx('id'), iName = idx('skill_name'), iDesc = idx('skill_description');
+  const iCat = idx('category'), iAtk = idx('atk'), iDef = idx('def');
+  const iTimes = idx('times'), iWep = idx('weapon_id');
+
+  if ([iId, iName, iCat, iAtk, iDef, iTimes].some(i => i < 0)) {
+    setBadge('status-skills','err','列名エラー'); return;
+  }
+
+  skills = {}; skillsByName = {};
+  let count = 0;
+  for (let r = 2; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row[iName] || row[iName] === '') continue;
+    const id = parseInt(row[iId]);
+    if (isNaN(id)) continue;
+    const obj = {
+      id, name: row[iName],
+      description: iDesc >= 0 ? row[iDesc] : '',
+      category: parseInt(row[iCat]),
+      atk: parseInt(row[iAtk]),
+      def: parseInt(row[iDef]),
+      times: parseInt(row[iTimes]),
+      weapon_id: iWep >= 0 ? row[iWep] : ''
+    };
+    skills[id] = obj;
+    skillsByName[obj.name] = obj;
+    count++;
+  }
+  setBadge('status-skills', count > 0 ? 'ok' : 'err', count > 0 ? `OK` : 'データなし');
+  document.getElementById('stat-skills-count').textContent = `技: ${count}件`;
+  document.getElementById('stat-skills-count').className = 'badge ok';
+  if (count > 0) toast(`技マスタ: ${count}件 読み込み完了`);
+}
+
+// ========== LOAD NPCS ==========
+function loadNPCs() {
+  const raw = document.getElementById('csv-npcs').value.trim();
+  if (!raw) { toast('NPCマスタのテキストが空です'); return; }
+  const rows = parseCSV(raw);
+  if (!rows.length) { setBadge('status-npcs','err','行数不足'); return; }
+
+  // detect header
+  let dataStart = 0;
+  let header = null;
+  const first = rows[0][0];
+  if (isNaN(parseFloat(first.replace(/[^0-9.-]/g, '')))) {
+    header = rows[0];
+    dataStart = 1;
+  } else {
+    // no header
+    const base = ['pattern_id','pattern_name','weapon_name','r1','r2','r3','r4','r5'];
+    header = rows[0].length >= 9
+      ? base.concat(['npc_id'], rows[0].slice(9).map((_,i)=>`col${i}`))
+      : base.slice(0, rows[0].length);
+    dataStart = 0;
+  }
+
+  const hi = h => header.indexOf(h);
+  const iPid = hi('pattern_id'), iWep = hi('weapon_name');
+  const iR = [hi('r1'),hi('r2'),hi('r3'),hi('r4'),hi('r5')];
+  const iNpcId = hi('npc_id'), iArcade = hi('arcade');
+
+  npcs = {};
+  let count = 0, arcadeCount = 0;
+  for (let r = dataStart; r < rows.length; r++) {
+    const row = rows[r];
+    if (iPid >= 0 && (row[iPid] === undefined || row[iPid] === '')) continue;
+    const wname = iWep >= 0 ? row[iWep] : '';
+    if (!wname) continue;
+    const rounds = iR.map(i => (i >= 0 && row[i]) ? row[i] : '');
+    const npcId = (iNpcId >= 0 && row[iNpcId]) ? row[iNpcId] : null;
+    const arcadeVal = iArcade >= 0 ? row[iArcade].trim().toUpperCase() === 'TRUE' : true;
+    npcs[r] = { weapon_name: wname, rounds, npc_id: npcId, arcade: arcadeVal };
+    count++;
+    if (arcadeVal) arcadeCount++;
+  }
+
+  // build display names (preserve order, deduplicate)
+  const seen = new Set();
+  npcDisplayNames = [];
+  for (const d of Object.values(npcs)) {
+    const disp = d.npc_id ? `${d.weapon_name} [${d.npc_id}]` : d.weapon_name;
+    if (!seen.has(disp)) { seen.add(disp); npcDisplayNames.push(disp); }
+  }
+
+  setBadge('status-npcs', count > 0 ? 'ok' : 'err', count > 0 ? 'OK' : 'データなし');
+  document.getElementById('stat-npcs-count').textContent = `NPC: ${count}件`;
+  document.getElementById('stat-npcs-count').className = 'badge ok';
+  document.getElementById('stat-npcs-arcade').textContent = `arcade対象: ${arcadeCount}件`;
+  document.getElementById('stat-npcs-arcade').className = 'badge ok';
+  if (count > 0) toast(`NPCマスタ: ${count}件（arcade: ${arcadeCount}件）読み込み完了`);
+}
+
+function setBadge(id, type, text) {
+  const el = document.getElementById(id);
+  el.className = `badge ${type}`;
+  el.textContent = text;
+}
+
+function clearAll() {
+  skills = {}; skillsByName = {}; npcs = {}; npcDisplayNames = [];
+  document.getElementById('csv-skills').value = '';
+  document.getElementById('csv-npcs').value = '';
+  setBadge('status-skills','','未読込');
+  setBadge('status-npcs','','未読込');
+  document.getElementById('stat-skills-count').textContent = '技: -';
+  document.getElementById('stat-skills-count').className = 'badge';
+  document.getElementById('stat-npcs-count').textContent = 'NPC: -';
+  document.getElementById('stat-npcs-count').className = 'badge';
+  document.getElementById('stat-npcs-arcade').textContent = 'arcade対象: -';
+  document.getElementById('stat-npcs-arcade').className = 'badge';
+  toast('クリアしました');
+}
+
+function goToSim() {
+  if (!Object.keys(skills).length) { toast('技マスタを読み込んでください'); return; }
+  if (!Object.keys(npcs).length) { toast('NPCマスタを読み込んでください'); return; }
+  showTab('tab-sim');
+}
+
+// ========== SELECT BUILD ==========
+function buildOptions(selectEl, names) {
+  const cur = selectEl.value;
+  selectEl.innerHTML = '<option value="">-- 選択 --</option>';
+  for (const n of names) {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    if (n === cur) o.selected = true;
+    selectEl.appendChild(o);
+  }
+}
+
+function rebuildSelects() {
+  buildOptions(document.getElementById('sel-npc1'), npcDisplayNames);
+  buildOptions(document.getElementById('sel-npc2'), npcDisplayNames);
+  updateNpcMeta();
+}
+
+function filterNpc(num) {
+  const val = document.getElementById(`search-npc${num}`).value.toLowerCase();
+  const filtered = val ? npcDisplayNames.filter(n => n.toLowerCase().includes(val)) : npcDisplayNames;
+  buildOptions(document.getElementById(`sel-npc${num}`), filtered);
+  updateNpcMeta();
+}
+
+function updateNpcMeta() {
+  for (const num of [1, 2]) {
+    const sel = document.getElementById(`sel-npc${num}`).value;
+    const meta = document.getElementById(`meta-npc${num}`);
+    if (!sel) { meta.textContent = ''; continue; }
+    const pts = getPatternsForDisplay(sel);
+    meta.textContent = pts.length ? `パターン数: ${pts.length}` : 'パターンなし';
+  }
+}
+
+// ========== CALC LOGIC (ported from Python) ==========
+function getAdvantage(myCat, oppCat) {
+  if (myCat === oppCat) return 0;
+  const map = { 1:[2,5], 2:[3,5], 3:[1,5], 4:[1,2,3], 5:[4] };
+  return (map[myCat] || []).includes(oppCat) ? 1 : -1;
+}
+
+function getVoltageBoost(usedCats, curCat) {
+  const others = new Set(usedCats.filter(c => c !== curCat)).size;
+  return [1.0, 1.1, 1.25, 1.5, 2.0][Math.min(others, 4)];
+}
+
+function calculatePoints(mySkill, oppSkillName, myUsedCats, oppUsedCats) {
+  const oppSkill = skillsByName[oppSkillName];
+  if (!oppSkill) return [0, 0];
+  const adv = getAdvantage(mySkill.category, oppSkill.category);
+  const myBoost  = [4,5].includes(mySkill.category)  ? getVoltageBoost(myUsedCats, mySkill.category)  : 1.0;
+  const oppBoost = [4,5].includes(oppSkill.category) ? getVoltageBoost(oppUsedCats, oppSkill.category) : 1.0;
+  const myAtkBoosted  = Math.floor(mySkill.atk  * myBoost);
+  const oppAtkBoosted = Math.floor(oppSkill.atk * oppBoost);
+  if (adv > 0) return [myAtkBoosted - oppSkill.def, 0];
+  if (adv < 0) return [0, oppAtkBoosted - mySkill.def];
+  return [Math.floor(myAtkBoosted / 2) - oppSkill.def, Math.floor(oppAtkBoosted / 2) - mySkill.def];
+}
+
+function parseDisplayName(disp) {
+  if (disp.endsWith(']') && disp.includes(' [')) {
+    const idx = disp.lastIndexOf(' [');
+    return [disp.slice(0, idx), disp.slice(idx + 2, -1)];
+  }
+  return [disp, null];
+}
+
+function getPatternsForDisplay(disp) {
+  const [weaponName, npcId] = parseDisplayName(disp);
+  return Object.entries(npcs)
+    .filter(([,d]) => d.weapon_name === weaponName && (npcId === null || d.npc_id === npcId))
+    .map(([k]) => k);
+}
+
+function simulateNpcVsNpc(p1Ids, p2Ids) {
+  let win = 0, draw = 0, loss = 0, matchups = 0;
+  for (const pid1 of p1Ids) {
+    for (const pid2 of p2Ids) {
+      const r1 = npcs[pid1].rounds;
+      const r2 = npcs[pid2].rounds;
+      let t1 = 0, t2 = 0;
+      const c1 = [], c2 = [];
+      for (let i = 0; i < Math.min(r1.length, r2.length); i++) {
+        const s1 = r1[i], s2 = r2[i];
+        if (!s1 || !s2 || !skillsByName[s1] || !skillsByName[s2]) continue;
+        const sk1 = skillsByName[s1];
+        const [p1pt, p2pt] = calculatePoints(sk1, s2, c1, c2);
+        c1.push(sk1.category);
+        c2.push(skillsByName[s2].category);
+        t1 += Math.max(0, p1pt);
+        t2 += Math.max(0, p2pt);
+      }
+      matchups++;
+      if (t1 > t2) win++;
+      else if (t1 === t2) draw++;
+      else loss++;
+    }
+  }
+  return { win, draw, loss, matchups };
+}
+
+// ========== RUN SIM ==========
+let isSimulating = false;
+
+function runSim() {
+  if (isSimulating) return;
+  if (!Object.keys(skills).length || !Object.keys(npcs).length) {
+    toast('先にデータを読み込んでください（データ読込タブ）');
+    return;
+  }
+
+  const npc1 = document.getElementById('sel-npc1').value;
+  const npc2 = document.getElementById('sel-npc2').value;
+  if (!npc1) { simLog('[ERROR] NPC 1 を選択してください。'); return; }
+  if (!npc2) { simLog('[ERROR] NPC 2 を選択してください。'); return; }
+
+  const p1Ids = getPatternsForDisplay(npc1);
+  const p2Ids = getPatternsForDisplay(npc2);
+  if (!p1Ids.length) { simLog(`[ERROR] 「${npc1}」のパターンが見つかりません。`); return; }
+  if (!p2Ids.length) { simLog(`[ERROR] 「${npc2}」のパターンが見つかりません。`); return; }
+
+  isSimulating = true;
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('run-status').textContent = '計算中...';
+  const fill = document.getElementById('prog-fill');
+  fill.style.width = '0%';
+  fill.classList.add('indeterminate');
+  simLogClear();
+  document.getElementById('result-card').classList.remove('visible');
+
+  // Use setTimeout to allow UI update before heavy calc
+  setTimeout(() => {
+    try {
+      const total = p1Ids.length * p2Ids.length;
+      simLog(`シミュレーション開始: ${npc1} vs ${npc2}（${total}試合）`);
+
+      const { win, draw, loss, matchups } = simulateNpcVsNpc(p1Ids, p2Ids);
+      const winR  = matchups > 0 ? win  / matchups : 0;
+      const drawR = matchups > 0 ? draw / matchups : 0;
+      const lossR = matchups > 0 ? loss / matchups : 0;
+
+      showResult({ npc1, npc2, win, draw, loss, matchups, winR, drawR, lossR,
+                   p1n: p1Ids.length, p2n: p2Ids.length });
+
+      simLog('\n' + '='.repeat(48));
+      simLog(`  ${npc1} (${p1Ids.length}パターン)  vs  ${npc2} (${p2Ids.length}パターン)`);
+      simLog(`  総試合数: ${matchups}  (全パターン総当り)`);
+      simLog(`  ${npc1} 勝ち: ${win}  引き分け: ${draw}  ${npc2} 勝ち: ${loss}`);
+      simLog(`  ${npc1} 勝率: ${pct(winR)}  引分率: ${pct(drawR)}  ${npc2} 勝率: ${pct(lossR)}`);
+      const v = winR > lossR ? `→ 【${npc1}】の優勢 (勝率 ${pct(winR)})` :
+                lossR > winR ? `→ 【${npc2}】の優勢 (勝率 ${pct(lossR)})` : '→ 互角';
+      simLog(`  ${v}`);
+      simLog('='.repeat(48) + '\n');
+
+      document.getElementById('run-status').textContent = '完了';
+    } catch (e) {
+      simLog(`[ERROR] ${e.message}`);
+      document.getElementById('run-status').textContent = 'エラー発生';
+    }
+
+    fill.classList.remove('indeterminate');
+    fill.style.width = '100%';
+    isSimulating = false;
+    document.getElementById('btn-run').disabled = false;
+  }, 50);
+}
+
+function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+function showResult({ npc1, npc2, win, draw, loss, matchups, winR, drawR, lossR, p1n, p2n }) {
+  const card = document.getElementById('result-card');
+  card.classList.add('visible');
+
+  document.getElementById('bar-p1').style.width   = (winR  * 100) + '%';
+  document.getElementById('bar-draw').style.width  = (drawR * 100) + '%';
+  document.getElementById('bar-p2').style.width   = (lossR * 100) + '%';
+
+  // add text inside bars
+  document.getElementById('bar-p1').textContent   = winR  > 0.08 ? pct(winR)  : '';
+  document.getElementById('bar-draw').textContent  = drawR > 0.05 ? pct(drawR) : '';
+  document.getElementById('bar-p2').textContent   = lossR > 0.08 ? pct(lossR) : '';
+
+  document.getElementById('lbl-p1').textContent = `◀ ${npc1} 勝ち`;
+  document.getElementById('lbl-p2').textContent = `${npc2} 勝ち ▶`;
+  document.getElementById('stat-win').textContent   = win;
+  document.getElementById('stat-draw').textContent  = draw;
+  document.getElementById('stat-loss').textContent  = loss;
+  document.getElementById('stat-total').textContent = matchups;
+  document.getElementById('stat-win-lbl').textContent  = npc1;
+  document.getElementById('stat-loss-lbl').textContent = npc2;
+
+  const v = winR > lossR ? `→ 【${npc1}】の優勢（勝率 ${pct(winR)}）`
+          : lossR > winR ? `→ 【${npc2}】の優勢（勝率 ${pct(lossR)}）`
+          : '→ 互角';
+  document.getElementById('verdict').textContent = v;
+}
+
+// ========== LOG ==========
+function simLog(msg) {
+  const box = document.getElementById('sim-log');
+  const div = document.createElement('span');
+  if (msg.startsWith('[ERROR]')) div.className = 'log-err';
+  else if (msg.includes('完了') || msg.includes('開始')) div.className = 'log-ok';
+  else if (msg.startsWith('===')) div.className = 'log-sep';
+  div.textContent = msg + '\n';
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+function simLogClear() {
+  document.getElementById('sim-log').innerHTML = '';
+}
+
+// ========== TOAST ==========
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
